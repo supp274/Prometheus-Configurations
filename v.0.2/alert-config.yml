@@ -1,0 +1,13 @@
+alertmanager_config: |
+  route:
+    receiver: 'default'
+    repeat_interval: 5m
+  receivers:
+    - name: 'default'
+      sns_configs:
+      - topic_arn: arn:aws:sns:us-east-1:*****:NotifyMe
+        sigv4:
+          region: us-east-1
+        attributes:
+          key: key1
+          value: value1
