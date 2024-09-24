@@ -1,0 +1,75 @@
+groups:
+  - name: k8s-nodes
+    rules:
+      - alert: KubernetesNodeReady
+        expr: kube_node_status_condition{condition="Ready",status="true"} == 0
+        for: 10m
+        labels:
+          severity: critical
+        annotations:
+          summary: Kubernetes Node ready (instance {{ $labels.instance }})
+          description: |-
+            Node {{ $labels.node }} has been unready for a long time
+              
+      - alert: KubernetesMemoryPressure
+        expr: kube_node_status_condition{condition="MemoryPressure",status="true"} == 1
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: Kubernetes memory pressure (instance {{ $labels.instance }})
+          description: |-
+            {{ $labels.node }} has MemoryPressure condition
+              
+      - alert: KubernetesDiskPressure
+        expr: kube_node_status_condition{condition="DiskPressure",status="true"} == 1
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: Kubernetes disk pressure (instance {{ $labels.instance }})
+          description: |-
+            {{ $labels.node }} has DiskPressure condition
+              
+      - alert: KubernetesOutOfDisk
+        expr: kube_node_status_condition{condition="OutOfDisk",status="true"} == 1
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: Kubernetes out of disk (instance {{ $labels.instance }})
+          description: |-
+            {{ $labels.node }} has OutOfDisk condition
+              
+      - alert: KubernetesNodeOutOfPodCapacity
+        expr: sum by (node) ((kube_pod_status_phase{phase="Running"} == 1) + on(uid)
+          group_left(node) (0 * kube_pod_info{pod_template_hash=""})) / sum
+          by    (node) (kube_node_status_allocatable{resource="pods"}) * 100 >
+          95
+        for: 12h
+        labels:
+          severity: warning
+        annotations:
+          summary: Kubernetes out of capacity (instance {{ $labels.instance }})
+          description: |-
+            {{ $labels.node }} is out of capacity
+              
+      - alert: KubernetesDiskPressure
+        expr: kube_node_status_condition{condition="DiskPressure",status="true"} == 1
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: Kubernetes disk pressure (instance {{ $labels.instance }})
+          description: |-
+            {{ $labels.node }} has DiskPressure condition
+              
+      - alert: KubernetesOutOfDisk
+        expr: kube_node_status_condition{condition="OutOfDisk",status="true"} == 1
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: Kubernetes out of disk (instance {{ $labels.instance }})
+          description: |-
+            {{ $labels.node }} has OutOfDisk condition

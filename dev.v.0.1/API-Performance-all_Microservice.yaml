@@ -1,0 +1,12 @@
+groups:
+- name: API-Performance-all_Microservice 
+  rules:
+  - alert: ApiPerformance
+    expr: ceil((sum by (app,path)(increase(api_request_duration_ms_sum{app!="analytics-api-snowflake",app!="pitneyship-pro-ui",app!="pitneyship-pro-adminui",code="200",path=~".*"}[30m]))) /  (sum by (app,path)(increase(api_request_duration_ms_count{app!="analytics-api-snowflake",code="200",path=~".*"}[12h])))) > 1000
+    for: 12h
+    labels:
+      severity: Critical_Performance
+    annotations:
+      summary: Request duration of (path {{ $labels.path }}) is {{ $value }} ms
+      Action: "Please escalate this to {{$labels.app}} team, if received twice for same API" 
+      

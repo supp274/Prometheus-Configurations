@@ -1,0 +1,29 @@
+groups:
+- name: HPA_related_alerts
+  rules:
+  - alert: KubernetesHpaScalingAbility
+    expr: kube_horizontalpodautoscaler_status_condition{status="false", condition="AbleToScale"} == 1
+    for: 10m
+    labels:
+      severity: warning
+    annotations:
+      summary: Kubernetes HPA scaling ability (instance {{ $labels.instance }})
+      description: "Pod is unable to scale"
+      
+  - alert: KubernetesHpaMetricAvailability
+    expr: kube_horizontalpodautoscaler_status_condition{status="false", condition="ScalingActive"} == 1
+    for: 10m
+    labels:
+      severity: warning
+    annotations:
+      summary: Kubernetes HPA metric availability (instance {{ $labels.instance }})
+      description: "HPA is not able to collect metrics"
+
+  - alert: KubernetesHpaScalingAbility
+    expr: kube_horizontalpodautoscaler_status_condition{status="false", condition="AbleToScale"} == 1
+    for: 10m
+    labels:
+      severity: warning
+    annotations:
+      summary: Kubernetes HPA scaling ability (instance {{ $labels.instance }})
+      description: "Pod is unable to scale"

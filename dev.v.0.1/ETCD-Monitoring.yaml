@@ -1,0 +1,11 @@
+groups:
+- name: aws-etcd-monitoring
+  rules:
+  - alert: ETCD_Storage_Utilization
+    expr: round(sum by (cluster,instance) (apiserver_storage_size_bytes / 1024 / 1024 / 1024), 0.001) > 5
+    for: 0m
+    labels:
+      severity: Critical
+    annotations:
+      description: " Instance {{ $labels.instance }} in {{ $labels.cluster }} storage utilization have reached {{ $value }} GB.  \n   Escalate to STS-DevOps"
+      
