@@ -1,0 +1,55 @@
+groups:
+  - name: k8s-nodes
+    rules:
+      - alert: P2_KubernetesNodeReady
+        expr: kube_node_status_condition{condition="Ready",status="true"} == 0
+        for: 10m
+        labels:
+          severity: P2
+        annotations:
+          Action: Action required within 30 minutes, escalate to DevOps
+          description: |-
+            Node {{ $labels.node }} has been unready for a long time
+              
+      - alert: P2_KubernetesMemoryPressure
+        expr: kube_node_status_condition{condition="MemoryPressure",status="true"} == 1
+        for: 2m
+        labels:
+          severity: P2
+        annotations:
+          Action: Action required within 30 minutes, escalate to DevOps
+          description: |-
+            {{ $labels.node }} has MemoryPressure condition
+              
+      - alert: P2_KubernetesDiskPressure
+        expr: kube_node_status_condition{condition="DiskPressure",status="true"} == 1
+        for: 2m
+        labels:
+          severity: P2
+        annotations:
+          Action: Action required within 30 minutes, escalate to DevOps
+          description: |-
+            {{ $labels.node }} has DiskPressure condition
+              
+      - alert: P2_KubernetesOutOfDisk
+        expr: kube_node_status_condition{condition="OutOfDisk",status="true"} == 1
+        for: 2m
+        labels:
+          severity: P2
+        annotations:
+          Action: Action required within 30 minutes, escalate to DevOps
+          description: |-
+            {{ $labels.node }} has OutOfDisk condition
+              
+      - alert: P3_KubernetesNodeOutOfPodCapacity
+        expr: sum by (node) ((kube_pod_status_phase{phase="Running"} == 1) + on(uid)
+          group_left(node) (0 * kube_pod_info{pod_template_hash=""})) / sum
+          by    (node) (kube_node_status_allocatable{resource="pods"}) * 100 >
+          90
+        for: 2m
+        labels:
+          severity: P3
+        annotations:
+          Action: Please refer to this dashboard "https://g-10b44d4b15.grafana-workspace.us-east-1.amazonaws.com/d/p3ygCsXSz/kubernetes-views-nodes-stats" and see if any pods are in waiting state. If Yes please escalate to devops with details.
+          description: |-
+            {{ $labels.node }} is out of pod capacity

@@ -1,0 +1,52 @@
+management:
+  prometheus:
+    - name: kc2
+      namespace: monitoring2 #mandatory field; disrupterra provisions this namespace and installs `prometheus-server` in the below clusters that will ingest metrices to the prometheus workspace.
+      # list of clusters and region to install the prometheus-server.
+      retention: "2d"
+      persistentVolumeSize: "150Gi"
+      storageClass: "gp2"
+      clusters:
+        - name: sp****-prd-kc2-eks-cluster
+          region: us-east-1
+      # can have multiple rules; and all the files must be placed along with `config.yml`
+      prometheusRules:
+
+        - ruleName: container-health #give a name for the rule
+          file: container-health.yaml #file name with set of prometheus rules
+        - ruleName: deamonHealth #give a name for the rule
+          file: deamonHealth.yaml #file name with set of prometheus rules
+        - ruleName: API-Performance #give a name for the rule
+          file: API-Performance.yaml #file name with set of prometheus rules 
+        - ruleName: pod-health #give a name for the rule
+          file: pod-health.yaml #file name with set of prometheus rules
+        - ruleName: job-health #give a name for the rule
+          file: job-health.yaml #file name with set of prometheus rules
+        - ruleName: k8sNodes #give a name for the rule
+          file: k8sNodes.yaml #file name with set of prometheus rules
+        - ruleName: ETCD-Monitoring #give a name for the rule
+          file: ETCD-Monitoring.yaml #file name with set of prometheus rules
+         
+        
+      # alert manager config file; yml must be place along with `config.yml`
+      alertManagerConfigFile: "alert-config.yml"
+      resources: #mandatory field; user must define the limits and requests for cpu and memory of the prometheus server.
+        limits:
+          cpu: 4
+          memory: 60Gi
+        requests:
+          cpu: 1
+          memory: 5Gi
+      nodeSelector:
+        nodegroup: amp
+      tolerations:
+        - key: dedicated
+          value: amp
+          operator: "Equal"
+          effect: NoSchedule 
+  grafana:
+    - name: higher-env
+      # ref: https://docs.aws.amazon.com/grafana/latest/userguide/AMG-data-sources-builtin.html; currently supports PROMETHEUS and CLOUDWATCH. Default: PROMETHEUS
+      services:
+        - PROMETHEUS
+        - CLOUDWATCH

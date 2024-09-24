@@ -1,0 +1,12 @@
+groups:
+- name: P3_aws-etcd-monitoring
+  rules:
+  - alert: ETCD_Storage_Utilization
+    expr: round(sum by (cluster,instance) (apiserver_storage_size_bytes / 1024 / 1024 / 1024), 0.001) > 7
+    for: 0m
+    labels:
+      severity: P3
+    annotations:
+      description: " Instance {{ $labels.instance }} in {{ $labels.cluster }} storage utilization have reached {{ $value }} GB."
+      Action: Escalate to DevOps
+      

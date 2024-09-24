@@ -1,0 +1,20 @@
+groups:
+- name: deamon-health
+  rules:
+  - alert: P2_KubernetesDaemonsetRolloutStuck
+    expr: kube_daemonset_status_number_ready / kube_daemonset_status_desired_number_scheduled * 100 < 100 or kube_daemonset_status_desired_number_scheduled - kube_daemonset_status_current_number_scheduled > 10
+    for: 30m
+    labels:
+      severity: P2
+    annotations:
+      Action: Action required within 30 minutes, escalate to DevOps
+      description: "Some Pods {{ $labels.pod}} in (instance {{ $labels.instance }}) of DaemonSet are not scheduled or not ready"
+    
+  - alert: KubernetesDaemonsetMisscheduled
+    expr: P2_kube_daemonset_status_number_misscheduled > 10
+    for: 10m
+    labels:
+      severity: P2
+    annotations:
+      Action: Action required within 30 minutes, escalate to DevOps
+      description: "Some DaemonSet Pods are running where they are not supposed to run (instance {{ $labels.instance }})"  

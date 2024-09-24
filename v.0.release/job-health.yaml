@@ -1,0 +1,31 @@
+groups:
+- name: job_related_alerts
+  rules:
+  - alert: P1_KubernetesJobFailed
+    expr: kube_job_status_failed > 0
+    for: 30m
+    labels:
+      severity: P1
+    annotations:
+      Action: Immediate action required, Open an ERT
+      description: "Job {{$labels.namespace}}/{{$labels.exported_job}} failed to complete"
+
+  - alert: P2_KubernetesCronjobTooLong
+    expr: time() - kube_cronjob_next_schedule_time > 3600
+    for: 15m
+    labels:
+      severity: P2
+    annotations:
+      Action: Action required within 30 minutes, escalate to DevOps
+      description: "CronJob {{ $labels.namespace }}/{{ $labels.cronjob }} is taking more than 1h to complete"
+
+  - alert: P3_KubernetesJobSlowCompletion
+    expr: kube_job_spec_completions - kube_job_status_succeeded > 0
+    for: 12h
+    labels:
+      severity: P3
+    annotations:
+      Action: Please escalate to the application team & DevOps
+      description: "Kubernetes Job {{ $labels.namespace }}/{{ $labels.job_name }} did not complete in time."
+
+
