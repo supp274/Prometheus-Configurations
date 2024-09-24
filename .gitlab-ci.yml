@@ -1,0 +1,133 @@
+stages:
+# provision base monitoring for the prf environment
+- prf_dryrun_monitoring
+- prf_provision_monitoring
+# provision base monitoring for the dev environment
+- dev_dryrun_monitoring
+- dev_provision_monitoring
+# provision base monitoring for the qa environment
+# - qa_dryrun_monitoring
+# - qa_provision_monitoring
+# provision base monitoring for the ppd environment
+# - ppd_dryrun_monitoring
+# - ppd_provision_monitoring
+# provision base monitoring for the prd environment
+- prd_dryrun_monitoring
+- prd_provision_monitoring
+
+.dryrun_monitoring_template:
+  variables:
+    DISRUPTERRA_DRY_RUN: "true"
+
+.provision_monitoring_template:
+  image: nexus.****.com:8888/cloudnative/disrupterra:1.4.0cn-47d #
+  tags:
+    - k8sdeploy  # Specify the tag of your gitlab-runner with a docker type connection to GitLab.
+  script:
+    - /disrupterra/scripts/deploy.sh  # Required command to start base monitoring provisioning
+  allow_failure: false
+
+# Provision base monitoring for prf
+prf_provision_monitoring:
+  extends: .provision_monitoring_template
+  stage: prf_provision_monitoring
+  environment:
+    name: prf
+  when: manual
+  allow_failure: true
+
+# Provision base monitoring for dev
+dev_provision_monitoring:
+  extends: .provision_monitoring_template
+  stage: dev_provision_monitoring
+  environment:
+    name: dev
+  # when: manual
+  allow_failure: true
+# # Provision base monitoring for qa
+# qa_provision_monitoring:
+#   extends: .provision_monitoring_template
+#   stage: qa_provision_monitoring
+#   environment:
+#     name: qa
+#   only:
+#     - main
+#   when: manual
+
+# # Provision base monitoring for ppd
+# ppd_provision_monitoring:
+#   extends: .provision_monitoring_template
+#   stage: ppd_provision_monitoring
+#   environment:
+#     name: ppd
+#   only:
+#     - main
+#   when: manual
+
+# Provision base monitoring for prd
+prd_provision_monitoring:
+  extends: .provision_monitoring_template
+  stage: prd_provision_monitoring
+  environment:
+    name: prd
+  only:
+    - main
+  when: manual
+
+# Dry-run base monitoring for prf
+prf_dryrun_monitoring:
+  extends: 
+    - .provision_monitoring_template
+    - .dryrun_monitoring_template
+  stage: prf_dryrun_monitoring
+  environment:
+    name: prf
+  when: manual
+
+# Dry-run base monitoring for dev
+dev_dryrun_monitoring:
+  extends: 
+    - .provision_monitoring_template
+    - .dryrun_monitoring_template
+  stage: dev_dryrun_monitoring
+  environment:
+    name: dev
+  when: manual
+  allow_failure: true
+
+# # Dry-run base monitoring for qa
+# qa_dryrun_monitoring:
+#   extends: 
+#     - .provision_monitoring_template
+#     - .dryrun_monitoring_template
+#   stage: qa_dryrun_monitoring
+#   environment:
+#     name: qa
+#   only:
+#     - main
+#   when: manual
+
+# Dry-run base monitoring for ppd
+# ppd_dryrun_monitoring:
+#   extends: 
+#     - .provision_monitoring_template
+#     - .dryrun_monitoring_template
+#   stage: ppd_dryrun_monitoring
+#   environment:
+#     name: ppd
+#   only:
+#     - main
+#   when: manual
+
+# Dry-run base monitoring for prd
+prd_dryrun_monitoring:
+  extends: 
+    - .provision_monitoring_template
+    - .dryrun_monitoring_template
+  stage: prd_dryrun_monitoring
+  environment:
+    name: prd
+  only:
+    - main
+  when: manual
+
