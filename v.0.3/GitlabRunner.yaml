@@ -1,0 +1,56 @@
+groups:
+- name: gitlab-runner-alerts
+  rules:
+  - alert: GitlabRunners_CPU_Usage
+    expr: (100 - (avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100)) > 80
+    for: 5m
+    labels:
+      severity: Critical
+    annotations:
+      summary: Gitlab Runner (instance {{ $labels.instance }}) CPU usage have crossed {{ $value }} %
+      Action: Escalate to STS-Devops
+    
+  - alert: GitlabRunnersMemoryUsage
+    expr: 100 * (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) > 75
+    for: 5m
+    labels:
+      severity: Critical
+    annotations:
+      summary: Gitlab Runner instance's (instance {{ $labels.instance }}) memory usage is {{ $value }} %
+      Action: Escalate to STS-Devops
+
+  - alert: GitlabRunnerHealthCheck
+    expr: up{job="runners"} == 0
+    for: 10m
+    labels:
+      severity: Critical
+    annotations:
+      summary: Gitlab Runner instance {{ $labels.instance }} is down
+      Action: Escalate to STS-Devops
+      
+  - alert: GitlabRunnerJobStatus
+    expr: sum(gitlab_runner_jobs{job="runners",state=~"failed|pending"}) by (state,instance,runner)
+    for: 15m
+    labels:
+      severity: Critical
+    annotations:
+      summary: Gitlab Runner job is stuck or failed
+      Action: Escalate to STS-Devops
+     
+  - alert: GitlabRunnerLongRunningJob
+    expr: (gitlab_runner_job_duration_seconds_count{instance=~".*",job="runners",runner=~".*"}) > 1800
+    for: 1h
+    labels:
+      severity: Critical
+    annotations:
+      summary: Gitlab Runner job {{ $labels.runners }} on  instance {{ $labels.instance }} taking more than 30 mins
+      Action: Escalate to STS-Devops
+    
+  - alert: GitlabFailedJob
+    expr: count(gitlab_runner_failed_jobs_total{instance=~".*"}) by (runner,instance) > 0
+    for: 30m
+    labels:
+      severity: Critical
+    annotations:
+      summary: Gitlab Runner job {{ $labels.runners }} on instance {{ $labels.instance }} have failed
+      Action: Escalate to STS-Devops
