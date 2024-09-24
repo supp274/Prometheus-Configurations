@@ -1,1 +1,406 @@
+groups:
+- name: k8s-alerts
+  rules:
+    # Alert for any instance that is unreachable for >5 minutes.
+  # - alert: InstanceDown
+  #   expr: up == 0
+  #   for: 5m
+  #   labels:
+  #     severity: page
+  #   annotations:
+  #     summary: "Instance {{ $labels.instance }} down"
+  #     description: "{{ $labels.instance }} of job {{ $labels.job }} has been down for more than 5 minutes."
 
+    # Alert for FileSystem Usage.
+  - alert: FilesystemUsageWarning
+    expr: (sum(node_filesystem_size_bytes{device!="rootfs"}) by (instance,env) - sum(node_filesystem_free_bytes{device!="rootfs"}) by (instance,env)) / sum(node_filesystem_size_bytes{device!="rootfs"}) by (instance,env) > 0.85
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: "Node {{ $labels.instance }} filesystem usage reaching critical limit"
+      description: "Node {{ $labels.instance }} filesystem usage is greater than 85 percent of capacity."
+
+    # Alert for Memory Usage.
+  - alert: MemoryUsageWarning
+    expr: sum ((node_memory_MemTotal_bytes - node_memory_MemFree_bytes - node_memory_Buffers_bytes - node_memory_Cached_bytes)/node_memory_MemTotal_bytes * 100) by (instance,env) > 70
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: "Node {{ $labels.instance }} memory usage reaching critical limit"
+      description: "Node {{ $labels.instance }} memory usage is greater than 70 percent of capacity."
+
+    # Alert for CPU Usage.
+  - alert: CPUUsageWarning
+    expr: 100 -  (avg by (cpu, instance,env) (irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: "Node {{ $labels.instance }} CPU usage reached critical limit"
+      description: "Node {{ $labels.instance }} CPU usage is greater than 80 percent."
+- name: KubernetesPodNotHealthy
+  rules:
+  - alert: KubernetesPodNotHealthy
+    expr: min_over_time(sum by (namespace, pod) (kube_pod_status_phase{phase=~"Pending|Unknown|Failed"})[15m:1m]) > 0
+    for: 0m
+    labels:
+      severity: critical
+    annotations:
+      summary: Kubernetes Pod not healthy (instance {{ $labels.instance }})
+      description: "Pod has been in a non-ready state for longer than 15 minutes."
+- name: KubernetesPodCrashLooping
+  rules:
+  - alert: KubernetesPodCrashLooping
+    expr: increase(kube_pod_container_status_restarts_total[1m]) > 3
+    for: 2m
+    labels:
+      severity: warning
+    annotations:
+      summary: Kubernetes pod crash looping (instance {{ $labels.instance }})
+      description: "Pod {{ $labels.pod }} is crash looping\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+- name: kubernetes-container-evictions
+  rules:
+  - alert: FailedEvictedPods
+    expr: sum by(namespace, pod) (kube_pod_status_phase{phase="Failed"} > 0 and on(namespace, pod) kube_pod_status_reason{reason="Evicted"} > 0) > 0
+    for: 10m
+    labels:
+      severity: warning
+    annotations:
+      message: 'Failed Evicted pod:{{ $labels.pod }} namespace:{{ $labels.namespace }}'
+  - alert: TooManyEvictedPods
+    expr: sum(kube_pod_status_reason{reason="Evicted"}) >= 2
+    labels:
+      severity: high
+    annotations:
+      message: 'Too many Failed Evicted Pods: {{ $value }}'
+- name: addrbook-alerts
+  rules:
+    # Alert for any 5xx responses in the last minute
+  - alert: addrbook_5xxWarning
+    expr: sum(rate(api_request_duration_ms_count{app="addrbook",code=~"^5..$"}[1m])) by (app,env) > 0
+    # for: 1m -- no for: just alert on the first occurance
+    labels:
+      severity: warning
+    annotations:
+      summary: "addrbook 5xx response occurred - warning"
+      description: "The addrbook service produced at least one 5xx response. This is a warning; a separate critical error will occur if it keeps happening."
+    # Alert for 10% of responses are 5xx over the last 10 minutes.
+    # ... This alert fires immediately when the trailing 10-minute rate reaches the threshold.
+  - alert: addrbook_5xxCritical
+    expr: sum(rate(api_request_duration_ms_count{app="addrbook",code=~"^5..$"}[10m])) / sum (rate(api_request_duration_ms_count{app="addrbook"}[10m])) by (app,env) > 0.1
+    # for: 1m -- no for: just alert on the first occurance
+    labels:
+      severity: page
+    annotations:
+      summary: "addrbook 5xx response rate exceeded 10%"
+      description: "Over 10% of the calls to the addrbook service over the last 10 minutes produced a 5xx response."
+    # Alert for 1-minute average request duration over 500ms (per pod) for 10 minutes
+  - alert: addrbook_RequestDurationCritical
+    expr: sum(rate(api_request_duration_ms_sum{app="addrbook"}[1m])) by (kubernetes_pod_name) / sum(rate(api_request_duration_ms_count{app="addrbook"}[1m])) by (kubernetes_pod_name,app,env) > 500
+    for: 10m
+    labels:
+      severity: page
+    annotations:
+      summary: "addrbook average request duration is over 500ms"
+      description: "One of the addrbook service pods has had an average API request duration of over 500ms for at least 10 minutes."
+- name: climgmt-alerts
+  rules:
+    # Alert for any 5xx responses in the last minute
+  - alert: climgmt_5xxWarning
+    expr: sum(rate(api_request_duration_ms_count{app="climgmt",code=~"^5..$"}[1m])) by (app,env) > 0
+    # for: 1m -- no for: just alert on the first occurance
+    labels:
+      severity: warning
+    annotations:
+      summary: "climgmt 5xx response occurred - warning"
+      description: "The climgmt service produced at least one 5xx response. This is a warning; a separate critical error will occur if it keeps happening."
+    # Alert for 10% of responses are 5xx over the last 10 minutes.
+    # ... This alert fires immediately when the trailing 10-minute rate reaches the threshold.
+  - alert: climgmt_5xxCritical
+    expr: sum(rate(api_request_duration_ms_count{app="climgmt",code=~"^5..$"}[10m])) / sum (rate(api_request_duration_ms_count{app="climgmt"}[10m])) by (app,env) > 0.1
+    # for: 1m -- no for: just alert on the first occurance
+    labels:
+      severity: page
+    annotations:
+      summary: "climgmt 5xx response rate exceeded 10%"
+      description: "Over 10% of the calls to the climgmt service over the last 10 minutes produced a 5xx response."
+    # Alert for 1-minute average request duration over 500ms (per pod) for 10 minutes
+  - alert: climgmt_RequestDurationCritical
+    expr: sum(rate(api_request_duration_ms_sum{app="climgmt"}[1m])) by (kubernetes_pod_name,app,env) / sum(rate(api_request_duration_ms_count{app="climgmt"}[1m])) by (kubernetes_pod_name,app,env) > 500
+    for: 10m
+    labels:
+      severity: page
+    annotations:
+      summary: "climgmt average request duration is over 500ms"
+      description: "One of the climgmt service pods has had an average API request duration of over 500ms for at least 10 minutes."
+- name: prodmgmt-alerts
+  rules:
+    # Alert for any 5xx responses in the last minute
+  - alert: prodmgmt_5xxWarning
+    expr: sum(rate(api_request_duration_ms_count{app="prodmgmt",code=~"^5..$"}[1m])) by (app,env) > 0
+    # for: 1m -- no for: just alert on the first occurance
+    labels:
+      severity: warning
+    annotations:
+      summary: "prodmgmt 5xx response occurred - warning"
+      description: "The prodmgmt service produced at least one 5xx response. This is a warning; a separate critical error will occur if it keeps happening."
+    # Alert for 10% of responses are 5xx over the last 10 minutes.
+    # ... This alert fires immediately when the trailing 10-minute rate reaches the threshold.
+  - alert: prodmgmt_5xxCritical
+    expr: sum(rate(api_request_duration_ms_count{app="prodmgmt",code=~"^5..$"}[10m])) / sum (rate(api_request_duration_ms_count{app="prodmgmt"}[10m])) by (app,env) > 0.1
+    # for: 1m -- no for: just alert on the first occurance
+    labels:
+      severity: page
+    annotations:
+      summary: "prodmgmt 5xx response rate exceeded 10%"
+      description: "Over 10% of the calls to the prodmgmt service over the last 10 minutes produced a 5xx response."
+    # Alert for 1-minute average request duration over 500ms (per pod) for 10 minutes
+  - alert: prodmgmt_RequestDurationCritical
+    expr: sum(rate(api_request_duration_ms_sum{app="prodmgmt"}[1m])) by (kubernetes_pod_name,app,env) / sum(rate(api_request_duration_ms_count{app="prodmgmt"}[1m])) by (kubernetes_pod_name,app,env) > 500
+    for: 10m
+    labels:
+      severity: page
+    annotations:
+      summary: "prodmgmt average request duration is over 500ms"
+      description: "One of the prodmgmt service pods has had an average API request duration of over 500ms for at least 10 minutes."
+- name: lockerapi
+  rules:
+    # Alert for any 5xx responses in the last minute
+  - alert: lockerapi_5xxWarning
+    expr: sum(rate(api_request_duration_ms_count{app="lockerapi",code=~"^5..$"}[1m])) by (app,env) > 0
+    # for: 1m -- no for: just alert on the first occurance
+    #####alert manager###
+    labels:
+      severity: warning
+    annotations:
+      summary: "lockerapi 5xx response occurred - warning"
+      description: "The lockerapi service produced at least one 5xx response. This is a warning; a separate critical error will occur if it keeps happening."
+
+  - alert: lockerapi_5xxCritical
+    expr: sum(rate(api_request_duration_ms_count{app="lockerapi",code=~"^5..$"}[10m])) / sum (rate(api_request_duration_ms_count{app="lockerapi"}[10m])) by (app,env) > 0.1
+    # for: 1m -- no for: just alert on the first occurance
+    labels:
+      severity: page
+    annotations:
+      summary: "lockerapi 5xx response rate exceeded 10%"
+      description: "Over 10% of the calls to the lockerapi service over the last 10 minutes produced a 5xx response."
+
+  - alert: lockerapi_RequestDurationCritical
+    expr: sum(rate(api_request_duration_ms_sum{app="lockerapi"}[1m])) by (kubernetes_pod_name) / sum(rate(api_request_duration_ms_count{app="lockerapi"}[1m])) by (kubernetes_pod_name,app,env) > 500
+    for: 10m
+    labels:
+      severity: page
+    annotations:
+      summary: "lockerapi average request duration is over 500ms"
+      description: "One of the lockerapi service pods has had an average API request duration of over 500ms for at least 10 minutes."
+- name: ilp-lx1-middleware
+  rules:
+    # Alert for any 5xx responses in the last minute
+  - alert: ilp-lx1-middleware_5xxWarning
+    expr: sum(rate(api_request_duration_ms_count{app="ilp-lx1-middleware",code=~"^5..$"}[1m])) by (app,env) > 0
+    # for: 1m -- no for: just alert on the first occurance
+    labels:
+      severity: warning
+    annotations:
+      summary: "ilp-lx1-middleware 5xx response occurred - warning"
+      description: "The ilp-lx1-middleware service produced at least one 5xx response. This is a warning; a separate critical error will occur if it keeps happening."
+
+  - alert: ilp-lx1-middleware_5xxCritical
+    expr: sum(rate(api_request_duration_ms_count{app="ilp-lx1-middleware",code=~"^5..$"}[10m])) / sum (rate(api_request_duration_ms_count{app="ilp-lx1-middleware"}[10m])) by (app,env) > 0.1
+    # for: 1m -- no for: just alert on the first occurance
+    labels:
+      severity: page
+    annotations:
+      summary: "ilp-lx1-middleware 5xx response rate exceeded 10%"
+      description: "Over 10% of the calls to the ilp-lx1-middleware service over the last 10 minutes produced a 5xx response."
+
+  - alert: ilp-lx1-middleware_RequestDurationCritical
+    expr: sum(rate(api_request_duration_ms_sum{app="ilp-lx1-middleware"}[1m])) by (kubernetes_pod_name) / sum(rate(api_request_duration_ms_count{app="ilp-lx1-middleware"}[1m])) by (kubernetes_pod_name,app,env) > 500
+    for: 10m
+    labels:
+      severity: page
+    annotations:
+      summary: "ilp-lx1-middleware average request duration is over 500ms"
+      description: "One of the ilp-lx1-middleware service pods has had an average API request duration of over 500ms for at least 10 minutes."
+- name: submgmt-alerts
+  rules:
+    # Alert for any 5xx responses in the last minute
+  - alert: submgmt_5xxWarning
+    expr: sum(rate(api_request_duration_ms_count{app="submgmt",code=~"^5..$"}[1m])) by (app,env) > 0
+    # for: 1m -- no for: just alert on the first occurance
+    labels:
+      severity: warning
+    annotations:
+      summary: "submgmt 5xx response occurred - warning"
+      description: "The submgmt service produced at least one 5xx response. This is a warning; a separate critical error will occur if it keeps happening."
+    # Alert for 10% of responses are 5xx over the last 10 minutes.
+    # ... This alert fires immediately when the trailing 10-minute rate reaches the threshold.
+  - alert: submgmt_5xxCritical
+    expr: sum(rate(api_request_duration_ms_count{app="submgmt",code=~"^5..$"}[10m])) / sum (rate(api_request_duration_ms_count{app="submgmt"}[10m])) by (app,env) > 0.1
+    # for: 1m -- no for: just alert on the first occurance
+    labels:
+      severity: page
+    annotations:
+      summary: "submgmt 5xx response rate exceeded 10%"
+      description: "Over 10% of the calls to the submgmt service over the last 10 minutes produced a 5xx response."
+    # Alert for 1-minute average request duration over 500ms (per pod) for 10 minutes
+  - alert: submgmt_RequestDurationCritical
+    expr: sum(rate(api_request_duration_ms_sum{app="submgmt"}[1m])) by (kubernetes_pod_name,app,env) / sum(rate(api_request_duration_ms_count{app="submgmt"}[1m])) by (kubernetes_pod_name,app,env) > 500
+    for: 10m
+    labels:
+      severity: page
+    annotations:
+      summary: "submgmt average request duration is over 500ms"
+      description: "One of the submgmt service pods has had an average API request duration of over 500ms for at least 10 minutes."
+- name: subcarrieracctmgmt-alerts
+  rules:
+    # Alert for any 5xx responses in the last minute
+  - alert: subcarrieracctmgmt_5xxWarning
+    expr: sum(rate(api_request_duration_ms_count{app="subcarrieracctmgmt",code=~"^5..$"}[1m])) by (app,env) > 0
+    # for: 1m -- no for: just alert on the first occurance
+    labels:
+      severity: warning
+    annotations:
+      summary: "subcarrieracctmgmt 5xx response occurred - warning"
+      description: "The subcarrieracctmgmt service produced at least one 5xx response. This is a warning; a separate critical error will occur if it keeps happening."
+    # Alert for 10% of responses are 5xx over the last 10 minutes.
+    # ... This alert fires immediately when the trailing 10-minute rate reaches the threshold.
+  - alert: subcarrieracctmgmt_5xxCritical
+    expr: sum(rate(api_request_duration_ms_count{app="subcarrieracctmgmt",code=~"^5..$"}[10m])) / sum (rate(api_request_duration_ms_count{app="subcarrieracctmgmt"}[10m])) by (app,env) > 0.1
+    # for: 1m -- no for: just alert on the first occurance
+    labels:
+      severity: page
+    annotations:
+      summary: "subcarrieracctmgmt 5xx response rate exceeded 10%"
+      description: "Over 10% of the calls to the subcarrieracctmgmt service over the last 10 minutes produced a 5xx response."
+    # Alert for 1-minute average request duration over 500ms (per pod) for 10 minutes
+  - alert: subcarrieracctmgmt_RequestDurationCritical
+    expr: sum(rate(api_request_duration_ms_sum{app="subcarrieracctmgmt"}[1m])) by (kubernetes_pod_name,app,env) / sum(rate(api_request_duration_ms_count{app="subcarrieracctmgmt"}[1m])) by (kubernetes_pod_name,app,env) > 500
+    for: 10m
+    labels:
+      severity: page
+    annotations:
+      summary: "subcarrieracctmgmt average request duration is over 500ms"
+      description: "One of the subcarrieracctmgmt service pods has had an average API request duration of over 500ms for at least 10 minutes."
+- name: costacctmgmt-alerts
+  rules:
+    # Alert for any 5xx responses in the last minute
+  - alert: costacctmgmt_5xxWarning
+    expr: sum(rate(api_request_duration_ms_count{app="costacctmgmt",code=~"^5..$"}[1m])) by (app,env) > 0
+    # for: 1m -- no for: just alert on the first occurance
+    labels:
+      severity: warning
+    annotations:
+      summary: "costacctmgmt 5xx response occurred - warning"
+      description: "The costacctmgmt service produced at least one 5xx response. This is a warning; a separate critical error will occur if it keeps happening."
+    # Alert for 10% of responses are 5xx over the last 10 minutes.
+    # ... This alert fires immediately when the trailing 10-minute rate reaches the threshold.
+  - alert: costacctmgmt_5xxCritical
+    expr: sum(rate(api_request_duration_ms_count{app="costacctmgmt",code=~"^5..$"}[10m])) / sum (rate(api_request_duration_ms_count{app="costacctmgmt"}[10m])) by (app,env) > 0.1
+    # for: 1m -- no for: just alert on the first occurance
+    labels:
+      severity: page
+    annotations:
+      summary: "costacctmgmt 5xx response rate exceeded 10%"
+      description: "Over 10% of the calls to the costacctmgmt service over the last 10 minutes produced a 5xx response."
+    # Alert for 1-minute average request duration over 500ms (per pod) for 10 minutes
+  - alert: costacctmgmt_RequestDurationCritical
+    expr: sum(rate(api_request_duration_ms_sum{app="costacctmgmt"}[1m])) by (kubernetes_pod_name,app,env) / sum(rate(api_request_duration_ms_count{app="costacctmgmt"}[1m])) by (kubernetes_pod_name,app,env) > 500
+    for: 10m
+    labels:
+      severity: page
+    annotations:
+      summary: "costacctmgmt average request duration is over 500ms"
+      description: "One of the costacctmgmt service pods has had an average API request duration of over 500ms for at least 10 minutes."
+- name: sendpro-analytics-api-app-alerts
+  rules:
+    # Alert for any 5xx responses in the last minute
+  - alert: sendpro-analytics-api-app_5xxWarning
+    expr: sum(rate(api_request_duration_ms_count{app="sendpro-analytics-api-app",code=~"^5..$"}[1m])) by (app,env) > 0
+    # for: 1m -- no for: just alert on the first occurance
+    labels:
+      severity: warning
+    annotations:
+      summary: "sendpro-analytics-api-app 5xx response occurred - warning"
+      description: "The sendpro-analytics-api-app service produced at least one 5xx response. This is a warning; a separate critical error will occur if it keeps happening."
+    # Alert for 10% of responses are 5xx over the last 10 minutes.
+    # ... This alert fires immediately when the trailing 10-minute rate reaches the threshold.
+  - alert: sendpro-analytics-api-app_5xxCritical
+    expr: sum(rate(api_request_duration_ms_count{app="sendpro-analytics-api-app",code=~"^5..$"}[10m])) / sum (rate(api_request_duration_ms_count{app="sendpro-analytics-api-app"}[10m])) by (app,env) > 0.1
+    # for: 1m -- no for: just alert on the first occurance
+    labels:
+      severity: page
+    annotations:
+      summary: "sendpro-analytics-api-app 5xx response rate exceeded 10%"
+      description: "Over 10% of the calls to the sendpro-analytics-api-app service over the last 10 minutes produced a 5xx response."
+    # Alert for 1-minute average request duration over 500ms (per pod) for 10 minutes
+  - alert: sendpro-analytics-api-app_RequestDurationCritical
+    expr: sum(rate(api_request_duration_ms_sum{app="sendpro-analytics-api-app"}[1m])) by (kubernetes_pod_name,app,env) / sum(rate(api_request_duration_ms_count{app="sendpro-analytics-api-app"}[1m])) by (kubernetes_pod_name,app,env) > 500
+    for: 10m
+    labels:
+      severity: page
+    annotations:
+      summary: "sendpro-analytics-api-app average request duration is over 500ms"
+      description: "One of the sendpro-analytics-api-app service pods has had an average API request duration of over 500ms for at least 10 minutes"
+- name: analytics-worker-app-alerts
+  rules:
+    # Alert for any 5xx responses in the last minute
+  - alert: analytics-worker-app_5xxWarning
+    expr: sum(rate(api_request_duration_ms_count{app="analytics-worker-app",code=~"^5..$"}[1m])) by (app,env) > 0
+    # for: 1m -- no for: just alert on the first occurance
+    labels:
+      severity: warning
+    annotations:
+      summary: "analytics-worker-app 5xx response occurred - warning"
+      description: "The analytics-worker-app service produced at least one 5xx response. This is a warning; a separate critical error will occur if it keeps happening."
+    # Alert for 10% of responses are 5xx over the last 10 minutes.
+    # ... This alert fires immediately when the trailing 10-minute rate reaches the threshold.
+  - alert: analytics-worker-app_5xxCritical
+    expr: sum(rate(api_request_duration_ms_count{app="analytics-worker-app",code=~"^5..$"}[10m])) / sum (rate(api_request_duration_ms_count{app="analytics-worker-app"}[10m])) by (app,env) > 0.1
+    # for: 1m -- no for: just alert on the first occurance
+    labels:
+      severity: page
+    annotations:
+      summary: "analytics-worker-app 5xx response rate exceeded 10%"
+      description: "Over 10% of the calls to the analytics-worker-app service over the last 10 minutes produced a 5xx response."
+    # Alert for 1-minute average request duration over 500ms (per pod) for 10 minutes
+  - alert: analytics-worker-app_RequestDurationCritical
+    expr: sum(rate(api_request_duration_ms_sum{app="analytics-worker-app"}[1m])) by (kubernetes_pod_name,app,env) / sum(rate(api_request_duration_ms_count{app="analytics-worker-app"}[1m])) by (kubernetes_pod_name,app,env) > 500
+    for: 10m
+    labels:
+      severity: page
+    annotations:
+      summary: "analytics-worker-app average request duration is over 500ms"
+      description: "One of the analytics-worker-app service pods has had an average API request duration of over 500ms for at least 10 minutes."
+- name: receiving-alerts
+  rules:
+    # Alert for any 5xx responses in the last minute
+  - alert: receiving_5xxWarning
+    expr: sum(rate(api_request_duration_ms_count{app="receiving",code=~"^5..$"}[1m])) by (app,env) > 0
+    # for: 1m -- no for: just alert on the first occurance
+    labels:
+      severity: warning
+    annotations:
+      summary: "receiving 5xx response occurred - warning"
+      description: "The receiving service produced at least one 5xx response. This is a warning; a separate critical error will occur if it keeps happening."
+    # Alert for 10% of responses are 5xx over the last 10 minutes.
+    # ... This alert fires immediately when the trailing 10-minute rate reaches the threshold.
+  - alert: receiving_5xxCritical
+    expr: sum(rate(api_request_duration_ms_count{app="receiving",code=~"^5..$"}[10m])) / sum (rate(api_request_duration_ms_count{app="receiving"}[10m])) by (app,env) > 0.1
+    # for: 1m -- no for: just alert on the first occurance
+    labels:
+      severity: page
+    annotations:
+      summary: "receiving 5xx response rate exceeded 10%"
+      description: "Over 10% of the calls to the receiving service over the last 10 minutes produced a 5xx response."
+    # Alert for 1-minute average request duration over 500ms (per pod) for 10 minutes
+  - alert: receiving_RequestDurationCritical
+    expr: sum(rate(api_request_duration_ms_sum{app="receiving"}[1m])) by (kubernetes_pod_name) / sum(rate(api_request_duration_ms_count{app="receiving"}[1m])) by (kubernetes_pod_name,app,env) > 500
+    for: 10m
+    labels:
+      severity: page
+    annotations:
+      summary: "receiving average request duration is over 500ms"
+      description: "One of the receiving service pods has had an average API request duration of over 500ms for at least 10 minutes."

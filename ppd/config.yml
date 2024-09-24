@@ -1,0 +1,17 @@
+management:
+  prometheus:
+    - name: kc1
+      namespace: monitoring2 #mandatory field; disrupterra provisions this namespace and installs `prometheus-server` in the below clusters that will ingest metrices to the prometheus workspace.
+      # list of clusters and region to install the prometheus-server.
+      retention: "2d"
+      persistentVolumeSize: "20Gi"
+      storageClass: "gp2"
+      clusters:
+        - name: sp360***-ppd-kc1-eks-cluster
+          region: us-east-1
+      # can have multiple rules; and all the files must be placed along with `config.yml`
+      prometheusRules:
+        - ruleName: infra #give a name for the rule
+          file: alert-rule.yml #file name with set of prometheus rules
+      # alert manager config file; yml must be place along with `config.yml`
+      alertManagerConfigFile: "alert-config.yml"
